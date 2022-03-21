@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2021 CERN
 // SPDX-License-Identifier: Apache-2.0
 
+#define NOMSC
+
 #include "TestEm3.cuh"
 
 #include <AdePT/BVHNavigator.h>
