@@ -47,7 +47,7 @@ enum MaterialCutCouples {
   AbsorberMC,
 };
 
-constexpr G4double ProductionCut = 0.7 * mm;
+constexpr G4double ProductionCut = 1 * mm;
 
 constexpr double CalorSizeYZ       = 40 * copcore::units::cm;
 constexpr int NbOfLayers           = 50;
