@@ -193,10 +193,17 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
   COPCORE_CUDA_CHECK(cudaMemcpy(MCIndex_dev, MCIndex_host, sizeof(int) * numVolumes, cudaMemcpyHostToDevice));
   COPCORE_CUDA_CHECK(cudaMemcpyToSymbol(MCIndex, &MCIndex_dev, sizeof(int *)));
 
+  cudaDeviceProp deviceProp;
+  cudaGetDeviceProperties(&deviceProp, 0);
+
   // Capacity of the different containers aka the maximum number of particles.
-  constexpr int Capacity = 2048 * 1024;
+  // Use 2/7 of GPU memory for each of e+/e-/gammas, leaving 1/7 for the rest.
+  int Capacity = deviceProp.totalGlobalMem / sizeof(Track) * (2.0 / 7.0);
+
+  int MaxBlocks = deviceProp.maxGridSize[0];
 
   std::cout << "INFO: capacity of containers set to " << Capacity << std::endl;
+
   if (batch == -1) {
     // Rule of thumb: at most 1000 particles of one type per GeV primary.
     batch = Capacity / ((int)energy / copcore::units::GeV) / 1000;
@@ -215,9 +222,9 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
   //  * objects to manage slots inside the memory,
   //  * queues of slots to remember active particle and those needing relocation,
   //  * a stream and an event for synchronization of kernels.
-  constexpr size_t TracksSize  = sizeof(Track) * Capacity;
-  constexpr size_t ManagerSize = sizeof(SlotManager);
-  const size_t QueueSize       = adept::MParray::SizeOfInstance(Capacity);
+  size_t TracksSize  = sizeof(Track) * Capacity;
+  size_t ManagerSize = sizeof(SlotManager);
+  size_t QueueSize   = adept::MParray::SizeOfInstance(Capacity);
 
   ParticleType particles[ParticleType::NumParticleTypes];
   for (int i = 0; i < ParticleType::NumParticleTypes; i++) {
@@ -298,10 +305,9 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
     }
 
     // Initialize primary particles.
-    constexpr int InitThreads = 32;
-    int initBlocks            = (chunk + InitThreads - 1) / InitThreads;
+    int initBlocks            = (chunk + ThreadsPerBlock - 1) / ThreadsPerBlock;
     ParticleGenerator electronGenerator(electrons.tracks, electrons.slotManager, electrons.queues.currentlyActive);
-    InitPrimaries<<<initBlocks, InitThreads, 0, stream>>>(electronGenerator, startEvent, chunk, energy, startX,
+    InitPrimaries<<<initBlocks, ThreadsPerBlock, 0, stream>>>(electronGenerator, startEvent, chunk, energy, startX,
                                                           world_dev, globalScoring);
     COPCORE_CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -309,8 +315,6 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
     stats->inFlight[ParticleType::Positron] = 0;
     stats->inFlight[ParticleType::Gamma]    = 0;
 
-    constexpr int MaxBlocks        = 1024;
-    constexpr int TransportThreads = 32;
     int transportBlocks;
 
     int inFlight;
@@ -327,10 +331,10 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
       // *** ELECTRONS ***
       int numElectrons = stats->inFlight[ParticleType::Electron];
       if (numElectrons > 0) {
-        transportBlocks = (numElectrons + TransportThreads - 1) / TransportThreads;
+        transportBlocks = (numElectrons + ThreadsPerBlock - 1) / ThreadsPerBlock;
         transportBlocks = std::min(transportBlocks, MaxBlocks);
 
-        TransportElectrons<<<transportBlocks, TransportThreads, 0, electrons.stream>>>(
+        TransportElectrons<<<transportBlocks, ThreadsPerBlock, 0, electrons.stream>>>(
             electrons.tracks, electrons.queues.currentlyActive, secondaries, electrons.queues.nextActive, globalScoring,
             scoringPerVolume);
 
@@ -341,10 +345,10 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
       // *** POSITRONS ***
       int numPositrons = stats->inFlight[ParticleType::Positron];
       if (numPositrons > 0) {
-        transportBlocks = (numPositrons + TransportThreads - 1) / TransportThreads;
+        transportBlocks = (numPositrons + ThreadsPerBlock - 1) / ThreadsPerBlock;
         transportBlocks = std::min(transportBlocks, MaxBlocks);
 
-        TransportPositrons<<<transportBlocks, TransportThreads, 0, positrons.stream>>>(
+        TransportPositrons<<<transportBlocks, ThreadsPerBlock, 0, positrons.stream>>>(
             positrons.tracks, positrons.queues.currentlyActive, secondaries, positrons.queues.nextActive, globalScoring,
             scoringPerVolume);
 
@@ -355,10 +359,10 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
       // *** GAMMAS ***
       int numGammas = stats->inFlight[ParticleType::Gamma];
       if (numGammas > 0) {
-        transportBlocks = (numGammas + TransportThreads - 1) / TransportThreads;
+        transportBlocks = (numGammas + ThreadsPerBlock - 1) / ThreadsPerBlock;
         transportBlocks = std::min(transportBlocks, MaxBlocks);
 
-        TransportGammas<<<transportBlocks, TransportThreads, 0, gammas.stream>>>(
+        TransportGammas<<<transportBlocks, ThreadsPerBlock, 0, gammas.stream>>>(
             gammas.tracks, gammas.queues.currentlyActive, secondaries, gammas.queues.nextActive, globalScoring,
             scoringPerVolume);
 

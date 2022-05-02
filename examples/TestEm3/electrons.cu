@@ -31,7 +31,8 @@
 // applying the continuous effects and maybe a discrete process that could
 // generate secondaries.
 template <bool IsElectron>
-static __device__ __forceinline__ void TransportElectrons(Track *electrons, const adept::MParray *active,
+static __device__ __forceinline__
+void TransportElectrons(Track *electrons, const adept::MParray *active,
                                                           Secondaries &secondaries, adept::MParray *activeQueue,
                                                           GlobalScoring *globalScoring,
                                                           ScoringPerVolume *scoringPerVolume)
@@ -341,13 +342,15 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons, cons
 }
 
 // Instantiate kernels for electrons and positrons.
-__global__ void TransportElectrons(Track *electrons, const adept::MParray *active, Secondaries secondaries,
+__global__ __launch_bounds__(ThreadsPerBlock, MinBlocksPerSM)
+void TransportElectrons(Track *electrons, const adept::MParray *active, Secondaries secondaries,
                                    adept::MParray *activeQueue, GlobalScoring *globalScoring,
                                    ScoringPerVolume *scoringPerVolume)
 {
   TransportElectrons</*IsElectron*/ true>(electrons, active, secondaries, activeQueue, globalScoring, scoringPerVolume);
 }
-__global__ void TransportPositrons(Track *positrons, const adept::MParray *active, Secondaries secondaries,
+__global__ __launch_bounds__(ThreadsPerBlock, MinBlocksPerSM)
+void TransportPositrons(Track *positrons, const adept::MParray *active, Secondaries secondaries,
                                    adept::MParray *activeQueue, GlobalScoring *globalScoring,
                                    ScoringPerVolume *scoringPerVolume)
 {
