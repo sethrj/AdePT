@@ -36,6 +36,9 @@ DetectorMessenger::DetectorMessenger(DetectorConstruction *aDetector) : G4UImess
   fSensVolNameCmd = new G4UIcmdWithAString("/example14/detector/addsensitivevolume", this);
   fSensVolNameCmd->SetGuidance("Add a sensitive volume to the list");
   //
+  fSensVolGroupCmd = new G4UIcmdWithAString("/example14/detector/sensitivegroup", this);
+  fSensVolGroupCmd->SetGuidance("Define a wildcard for a sensitive volumes group");
+  //
   fActivationCmd = new G4UIcmdWithABool("/example14/adept/activate", this);
   fActivationCmd->SetGuidance("(Activate AdePT");
   //
@@ -44,6 +47,9 @@ DetectorMessenger::DetectorMessenger(DetectorConstruction *aDetector) : G4UImess
 
   fBufferThresholdCmd = new G4UIcmdWithAnInteger("/example14/adept/threshold", this);
   fBufferThresholdCmd->SetGuidance("Threshold for starting AdePT transport");
+
+  fTrackSlotsCmd = new G4UIcmdWithAnInteger("/example14/adept/milliontrackslots", this);
+  fTrackSlotsCmd->SetGuidance("Total number of allocated track slots per GPU");
 
   fFieldCmd = new G4UIcmdWith3VectorAndUnit("/example14/detector/setField", this);
   fFieldCmd->SetGuidance("Set the constant magenetic field vector.");
@@ -62,11 +68,13 @@ DetectorMessenger::~DetectorMessenger()
   delete fAdeptDir;
   delete fFieldCmd;
   delete fSensVolNameCmd;
+  delete fSensVolGroupCmd;
   delete fRegionNameCmd;
   delete fFileNameCmd;
   delete fActivationCmd;
   delete fVerbosityCmd;
   delete fBufferThresholdCmd;
+  delete fTrackSlotsCmd;
 }
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
@@ -83,11 +91,15 @@ void DetectorMessenger::SetNewValue(G4UIcommand *aCommand, G4String aNewValue)
     fDetector->SetMagField(fFieldCmd->GetNew3VectorValue(aNewValue));
   } else if (aCommand == fSensVolNameCmd) {
     fDetector->AddSensitiveVolume(aNewValue);
+  } else if (aCommand == fSensVolGroupCmd) {
+    fDetector->AddSensitiveGroup(aNewValue);
   } else if (aCommand == fActivationCmd) {
     fDetector->SetActivateAdePT(fActivationCmd->GetNewBoolValue(aNewValue));
   } else if (aCommand == fVerbosityCmd) {
     fDetector->SetVerbosity(fVerbosityCmd->GetNewIntValue(aNewValue));
   } else if (aCommand == fBufferThresholdCmd) {
     fDetector->SetBufferThreshold(fBufferThresholdCmd->GetNewIntValue(aNewValue));
+  } else if (aCommand == fTrackSlotsCmd) {
+    fDetector->SetTrackSlots(fTrackSlotsCmd->GetNewIntValue(aNewValue));
   }
 }

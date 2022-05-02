@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "AdeptIntegration.h"
-#include "AdeptIntegration.cuh"
 
 #include <VecGeom/management/BVHManager.h>
 #include "VecGeom/management/GeoManager.h"
@@ -160,7 +159,7 @@ void AdeptIntegration::Shower(int event)
 
   // Build the secondaries and put them back on the Geant4 stack
   for (int i = 0; i < fBuffer.numFromDevice; ++i) {
-    const auto &track = fBuffer.fromDevice[i];
+    const auto &track = fBuffer.fromDevice_sorted[i];
     if (fDebugLevel > 1) {
       G4cout << "[" << tid << "] fromDevice[ " << i << "]: pdg " << track.pdg << " energy " << track.energy
              << " position " << track.position[0] << " " << track.position[1] << " " << track.position[2]
@@ -224,17 +223,41 @@ adeptint::VolAuxData *AdeptIntegration::CreateVolAuxData(const G4VPhysicalVolume
     const auto vol   = pvol->GetLogicalVolume();
     int nd           = g4vol->GetNoDaughters();
     auto daughters   = vol->GetDaughters();
-    if (nd != daughters.size()) throw std::runtime_error("Mismatch in number of daughters");
+    if (nd != daughters.size())
+      throw std::runtime_error("Fatal: CreateVolAuxData: Mismatch in number of daughters");
+    // Check if transformations are matching
+    auto g4trans = g4pvol->GetTranslation();
+    auto g4rot = g4pvol->GetRotation();
+    G4RotationMatrix idrot;
+    auto vgtransformation = pvol->GetTransformation();
+    constexpr double epsil = 1.e-8;
+    for (int i = 0; i<3; ++i) {
+      if (std::abs(g4trans[i] - vgtransformation->Translation(i)) > epsil)
+        throw std::runtime_error(std::string("Fatal: CreateVolAuxData: Mismatch between Geant4 translation for physical volume") + pvol->GetName());
+    }
+
+    // check if VecGeom and Geant4 (local) transformations are matching. Not optimized, this will re-check
+    // already checked placed volumes when re-visiting the same volumes in different branches
+    if (!g4rot) g4rot = &idrot;
+    for (int row = 0; row<3; ++row) {
+      for (int col = 0; col<3; ++col) {
+        int i = row + 3*col;
+        if (std::abs((*g4rot)(row,col) - vgtransformation->Rotation(i)) > epsil)
+          throw std::runtime_error(std::string("Fatal: CreateVolAuxData: Mismatch between Geant4 rotation for physical volume") + pvol->GetName());
+      }
+    }
+
     // Check the couples
     if (g4vol->GetMaterialCutsCouple() == nullptr)
-      throw std::runtime_error("G4LogicalVolume " + std::string(g4vol->GetName()) +
+      throw std::runtime_error("Fatal: CreateVolAuxData: G4LogicalVolume " + std::string(g4vol->GetName()) +
                                std::string(" has no material-cuts couple"));
     int g4mcindex    = g4vol->GetMaterialCutsCouple()->GetIndex();
     int hepemmcindex = g4tohepmcindex[g4mcindex];
     // Check consistency with G4HepEm data
     if (hepEmState.fData->fTheMatCutData->fMatCutData[hepemmcindex].fG4MatCutIndex != g4mcindex)
-      throw std::runtime_error("Mismatch between Geant4 mcindex and corresponding G4HepEm index");
-    if (vol->id() >= nvolumes) throw std::runtime_error("Volume id larger than number of volumes");
+      throw std::runtime_error("Fatal: CreateVolAuxData: Mismatch between Geant4 mcindex and corresponding G4HepEm index");
+    if (vol->id() >= nvolumes)
+      throw std::runtime_error("Fatal: CreateVolAuxData: Volume id larger than number of volumes");
 
     // All OK, now fill the MCC index in the array
     auxData[vol->id()].fMCIndex = hepemmcindex;
@@ -247,8 +270,14 @@ adeptint::VolAuxData *AdeptIntegration::CreateVolAuxData(const G4VPhysicalVolume
     }
 
     // Check if the logical volume is sensitive
+    bool sens = false;
     for (auto sensvol : (*sensitive_volume_index)) {
-      if (std::string(vol->GetName()).rfind(sensvol.first, 0) == 0) {
+      if (vol->GetName() == sensvol.first ||
+          std::string(vol->GetName()).rfind(sensvol.first + "0x", 0) == 0) {
+        sens = true;
+        if (g4vol->GetSensitiveDetector() == nullptr)
+          throw std::runtime_error("Fatal: CreateVolAuxData: G4LogicalVolume " + std::string(g4vol->GetName()) +
+                                   " not sensitive while VecGeom one " + std::string(vol->GetName()) + " is.");
         if (auxData[vol->id()].fSensIndex < 0) nlogical_sens++;
         auxData[vol->id()].fSensIndex = sensvol.second;
         fScoringMap->insert(std::pair<const G4VPhysicalVolume *, int>(g4pvol, pvol->id()));
@@ -257,6 +286,10 @@ adeptint::VolAuxData *AdeptIntegration::CreateVolAuxData(const G4VPhysicalVolume
       }
     }
 
+    if (!sens && g4vol->GetSensitiveDetector() != nullptr)
+      throw std::runtime_error("Fatal: CreateVolAuxData: G4LogicalVolume " + std::string(g4vol->GetName()) +
+                               " sensitive while VecGeom one " + std::string(vol->GetName()) + " isn't.");
+
     // Now do the daughters
     for (int id = 0; id < nd; ++id) {
       auto g4pvol_d = g4vol->GetDaughter(id);
@@ -264,8 +297,8 @@ adeptint::VolAuxData *AdeptIntegration::CreateVolAuxData(const G4VPhysicalVolume
 
       // VecGeom does not strip pointers from logical volume names
       if (std::string(pvol_d->GetLogicalVolume()->GetName()).rfind(g4pvol_d->GetLogicalVolume()->GetName(), 0) != 0)
-        throw std::runtime_error("Volume names " + std::string(pvol_d->GetLogicalVolume()->GetName()) + " and " +
-                                 std::string(g4pvol_d->GetLogicalVolume()->GetName()) + " mismatch");
+        throw std::runtime_error("Fatal: CreateVolAuxData: Volume names " + std::string(pvol_d->GetLogicalVolume()->GetName()) +
+                                 " and " + std::string(g4pvol_d->GetLogicalVolume()->GetName()) + " mismatch");
       visitAndSetMCindex(g4pvol_d, pvol_d);
     }
   };

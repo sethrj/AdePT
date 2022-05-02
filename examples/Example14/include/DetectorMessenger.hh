@@ -47,6 +47,7 @@ private:
   G4UIcmdWithAString *fFileNameCmd    = nullptr;
   G4UIcmdWithAString *fRegionNameCmd  = nullptr;
   G4UIcmdWithAString *fSensVolNameCmd = nullptr;
+  G4UIcmdWithAString *fSensVolGroupCmd  = nullptr;
 
   G4UIcmdWith3VectorAndUnit *fFieldCmd = nullptr;
   /// Activation of AdePT
@@ -55,7 +56,8 @@ private:
   G4UIcmdWithAnInteger *fVerbosityCmd = nullptr;
   /// Buffer threshold for injecting into AdePT
   G4UIcmdWithAnInteger *fBufferThresholdCmd = nullptr;
-  //
+  /// Total number of track slots for the gpu
+  G4UIcmdWithAnInteger *fTrackSlotsCmd = nullptr;
 };
 
 #endif

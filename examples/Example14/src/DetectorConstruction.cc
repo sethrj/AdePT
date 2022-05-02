@@ -145,8 +145,12 @@ void DetectorConstruction::ConstructSDandField()
     G4cout << "Making " << name << " sensitive with index " << index << G4endl;
     caloSD->fSensitive_volume_index[name] = index;
     index++;
-
-    SetSensitiveDetector(G4LogicalVolumeStore::GetInstance()->GetVolume(name), caloSD);
+    // iterate G4LogicalVolumeStore and set sensitive volumes
+    auto const &store = *G4LogicalVolumeStore::GetInstance();
+    for (auto lvol : store) {
+      if (lvol->GetName() == name || lvol->GetName().rfind(name + "0x") == 0)
+        SetSensitiveDetector(lvol, caloSD);
+    }
   }
 
   auto detectorRegion = G4RegionStore::GetInstance()->GetRegion(fRegion_name);
@@ -156,11 +160,13 @@ void DetectorConstruction::ConstructSDandField()
   fShowerModel->SetScoringMap(&gScoringMap);
   fShowerModel->SetVerbosity(fVerbosity);
   fShowerModel->SetBufferThreshold(fBufferThreshold);
-
+  fShowerModel->SetTrackSlots(fTrackSlotsGPU);
+  
   try {
     fShowerModel->Initialize(fActivate_AdePT);
   } catch (const std::runtime_error &ex) {
     std::cerr << ex.what() << "\n";
+    exit (EXIT_FAILURE);
     return;
   }
   if (fActivate_AdePT)

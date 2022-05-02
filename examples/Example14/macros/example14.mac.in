@@ -16,7 +16,10 @@
 /example14/detector/filename @CMS2018_GDML@
 /example14/detector/regionname EcalRegion
 /example14/adept/verbose 0
-/example14/adept/threshold 50
+## Threshold for buffering tracks before sending to GPU
+/example14/adept/threshold 200
+## Total number of GPU track slots (not per thread)
+/example14/adept/milliontrackslots 1
 
 /example14/detector/addsensitivevolume EAPD_01
 /example14/detector/addsensitivevolume EAPD_02
@@ -36,6 +39,8 @@
 /example14/detector/addsensitivevolume EAPD_16
 /example14/detector/addsensitivevolume EAPD_17
 
+/example14/detector/sensitivegroup EAPD
+
 /example14/detector/addsensitivevolume EBRY_01
 /example14/detector/addsensitivevolume EBRY_02
 /example14/detector/addsensitivevolume EBRY_03
@@ -53,6 +58,24 @@
 /example14/detector/addsensitivevolume EBRY_15
 /example14/detector/addsensitivevolume EBRY_16
 /example14/detector/addsensitivevolume EBRY_17
+
+/example14/detector/sensitivegroup EBRY_01
+/example14/detector/sensitivegroup EBRY_02
+/example14/detector/sensitivegroup EBRY_03
+/example14/detector/sensitivegroup EBRY_04
+/example14/detector/sensitivegroup EBRY_05
+/example14/detector/sensitivegroup EBRY_06
+/example14/detector/sensitivegroup EBRY_07
+/example14/detector/sensitivegroup EBRY_08
+/example14/detector/sensitivegroup EBRY_09
+/example14/detector/sensitivegroup EBRY_10
+/example14/detector/sensitivegroup EBRY_11
+/example14/detector/sensitivegroup EBRY_12
+/example14/detector/sensitivegroup EBRY_13
+/example14/detector/sensitivegroup EBRY_14
+/example14/detector/sensitivegroup EBRY_15
+/example14/detector/sensitivegroup EBRY_16
+/example14/detector/sensitivegroup EBRY_17
 
 /example14/detector/addsensitivevolume EATJ_01
 /example14/detector/addsensitivevolume EATJ_02
@@ -72,12 +95,17 @@
 /example14/detector/addsensitivevolume EATJ_16
 /example14/detector/addsensitivevolume EATJ_17
 
+/example14/detector/sensitivegroup EATJ
+
 /example14/detector/addsensitivevolume EFRY
+
+/example14/detector/sensitivegroup EFRY
 
 ## -----------------------------------------------------------------------------
 ## Optionally, set a constant magnetic filed:
 ## -----------------------------------------------------------------------------
-/example14/detector/setField 0 0 3.8 tesla
+#/example14/detector/setField 0 0 3.8 tesla
+/example14/detector/setField 0 0 0 tesla
 
 ##
 ## -----------------------------------------------------------------------------
@@ -96,12 +124,12 @@
 /run/initialize
 
 ## Event verbosity: 1 = total edep, 2 = energy deposit per placed sensitive volume
-/example14/event/verbose 0
+/example14/event/verbose 2
 
 /example14/gun/setDefault
 /gun/particle e-
 /gun/energy 10 GeV
-/gun/number 100
+/gun/number 200
 /gun/position 0 0 0
 #/example14/gun/print
 

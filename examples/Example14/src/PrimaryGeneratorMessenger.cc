@@ -20,6 +20,11 @@ PrimaryGeneratorMessenger::PrimaryGeneratorMessenger(PrimaryGeneratorAction *Gun
   fGunDir = new G4UIdirectory("/example14/gun/");
   fGunDir->SetGuidance("gun control");
 
+  fHepmcCmd = new G4UIcmdWithoutParameter("/example14/gun/hepmc", this);
+  fHepmcCmd->SetGuidance("select hepmc input");
+  fHepmcCmd->AvailableForStates(G4State_PreInit, G4State_Idle);
+
+
   fDefaultCmd = new G4UIcmdWithoutParameter("/example14/gun/setDefault", this);
   fDefaultCmd->SetGuidance("set/reset kinematic defined in PrimaryGenerator");
   fDefaultCmd->AvailableForStates(G4State_PreInit, G4State_Idle);
@@ -33,15 +38,24 @@ PrimaryGeneratorMessenger::PrimaryGeneratorMessenger(PrimaryGeneratorAction *Gun
   fRndmCmd->SetParameterName("rBeam", false);
   fRndmCmd->SetRange("rBeam>=0.&&rBeam<=1.");
   fRndmCmd->AvailableForStates(G4State_Idle);
+
+  fRndmDirCmd = new G4UIcmdWithADouble("/example14/gun/rndmDir", this);
+  fRndmDirCmd->SetGuidance("random angular extension on the beam");
+  fRndmDirCmd->SetParameterName("rBeamDir", false);
+  fRndmDirCmd->SetRange("rBeamDir>=0.&&rBeamDir<=1.");
+  fRndmDirCmd->AvailableForStates(G4State_Idle);
+
 }
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
 PrimaryGeneratorMessenger::~PrimaryGeneratorMessenger()
 {
+  delete fHepmcCmd;
   delete fDefaultCmd;
   delete fPrintCmd;
   delete fRndmCmd;
+  delete fRndmDirCmd;
   delete fGunDir;
 }
 
@@ -49,6 +63,11 @@ PrimaryGeneratorMessenger::~PrimaryGeneratorMessenger()
 
 void PrimaryGeneratorMessenger::SetNewValue(G4UIcommand *command, G4String newValue)
 {
+
+  if (command == fHepmcCmd) {
+    fAction->SetHepMC();
+  }
+
   if (command == fDefaultCmd) {
     fAction->SetDefaultKinematic();
   }
@@ -60,6 +79,11 @@ void PrimaryGeneratorMessenger::SetNewValue(G4UIcommand *command, G4String newVa
   if (command == fRndmCmd) {
     fAction->SetRndmBeam(fRndmCmd->GetNewDoubleValue(newValue));
   }
+
+  if (command == fRndmDirCmd) {
+    fAction->SetRndmDirection(fRndmDirCmd->GetNewDoubleValue(newValue));
+  }
+
 }
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
